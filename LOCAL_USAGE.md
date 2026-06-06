@@ -17,6 +17,19 @@ trainer.run(model)
 
 The selected config decides what is actually trained.
 
+## Output Layout
+
+By default, FastGen writes data, model checkpoints, and run outputs under the repository-local `FASTGEN_OUTPUT/` directory:
+
+```text
+FASTGEN_OUTPUT/
+├── DATA/
+├── MODEL/
+└── fastgen/
+```
+
+This is controlled by the default config behavior when `FASTGEN_OUTPUT_ROOT`, `DATA_ROOT_DIR`, and `CKPT_ROOT_DIR` are not set. Keep these environment variables unset when you want the same layout as the upstream repository.
+
 ## Config Structure
 
 FastGen configs are organized in two main layers:
