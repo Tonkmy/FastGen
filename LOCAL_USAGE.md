@@ -30,6 +30,143 @@ FASTGEN_OUTPUT/
 
 This is controlled by the default config behavior when `FASTGEN_OUTPUT_ROOT`, `DATA_ROOT_DIR`, and `CKPT_ROOT_DIR` are not set. Keep these environment variables unset when you want the same layout as the upstream repository.
 
+## Atomic Workflow
+
+FastGen has a clear three-stage workflow:
+
+```text
+data/model assets -> training run -> inference run
+```
+
+Each stage has a small set of inputs and outputs. This makes the repository useful as a reference for organizing reproducible research code.
+
+### 1. Data And Model Assets
+
+The data preparation script is:
+
+```bash
+python scripts/download_data.py --dataset cifar10
+```
+
+For the EDM CIFAR-10 workflow, it creates:
+
+```text
+FASTGEN_OUTPUT/DATA/cifar10/cifar10-32x32.zip
+FASTGEN_OUTPUT/MODEL/cifar10/edm-cifar10-32x32-uncond-vp.pth
+FASTGEN_OUTPUT/MODEL/cifar10/edm-cifar10-32x32-cond-vp.pth
+```
+
+These files are upstream assets, not training outputs from the current run:
+
+- `DATA/.../cifar10-32x32.zip`: dataset consumed by the dataloader.
+- `MODEL/.../edm-cifar10-32x32-cond-vp.pth`: pretrained teacher diffusion model used by DMD2.
+- `MODEL/.../edm-cifar10-32x32-uncond-vp.pth`: pretrained unconditional EDM model for workflows that need it.
+
+The zip dataset is intentionally left zipped. The data loader reads it directly.
+
+### 2. Training Run
+
+Training enters through:
+
+```bash
+python train.py --config=<experiment_config.py>
+```
+
+or for multi-GPU:
+
+```bash
+torchrun --standalone --nproc_per_node=8 train.py --config=<experiment_config.py>
+```
+
+The config determines the method, network, dataset, teacher checkpoint, optimizer, trainer behavior, and output location.
+
+For example:
+
+```text
+fastgen/configs/experiments/EDM/config_dmd2_test.py
+```
+
+depends on:
+
+```text
+fastgen/configs/methods/config_dmd2.py
+FASTGEN_OUTPUT/DATA/cifar10/cifar10-32x32.zip
+FASTGEN_OUTPUT/MODEL/cifar10/edm-cifar10-32x32-cond-vp.pth
+```
+
+and produces:
+
+```text
+FASTGEN_OUTPUT/fastgen/cifar10/<run_name>/
+├── config.yaml
+├── checkpoints/
+│   ├── 0001000.pth
+│   ├── 0002000.pth
+│   └── ...
+└── wandb/ or wandb_id.txt, depending on logging mode
+```
+
+`config.yaml` is the resolved training configuration. It is the record of what actually ran after inheritance and command-line overrides.
+
+The checkpoint files are the primary training artifacts. They are later consumed by inference and evaluation scripts.
+
+### 3. Inference Run
+
+Image inference enters through:
+
+```bash
+python scripts/inference/image_model_inference.py \
+  --config=<experiment_config.py> \
+  --ckpt_path=<training_checkpoint.pth> \
+  [task-specific args] \
+  - log_config.name=<inference_run_name>
+```
+
+For the EDM CIFAR-10 DMD2 workflow:
+
+```bash
+python scripts/inference/image_model_inference.py \
+  --config fastgen/configs/experiments/EDM/config_dmd2_test.py \
+  --classes=10 \
+  --prompt_file=scripts/inference/prompts/classes.txt \
+  --ckpt_path=FASTGEN_OUTPUT/fastgen/cifar10/dmd2_test_8gpu/checkpoints/0005000.pth \
+  - log_config.name=test_inference_8gpu log_config.wandb_mode=disabled
+```
+
+The inference config should describe the model architecture and task. It does not need to be the same config used to launch multi-GPU training. For example, if the training config only adds `trainer.ddp=True`, use the base model config for single-process inference and point `--ckpt_path` to the multi-GPU checkpoint.
+
+The inference run produces samples under:
+
+```text
+FASTGEN_OUTPUT/fastgen/cifar10/<inference_run_name>/samples/
+```
+
+## Dependency Graph
+
+For EDM CIFAR-10 DMD2, the core dependency graph is:
+
+```text
+scripts/download_data.py
+  -> FASTGEN_OUTPUT/DATA/cifar10/cifar10-32x32.zip
+  -> FASTGEN_OUTPUT/MODEL/cifar10/edm-cifar10-32x32-cond-vp.pth
+
+fastgen/configs/methods/config_dmd2.py
+  -> DMD2 method: student net, fake score, discriminator, losses, callbacks
+
+fastgen/configs/experiments/EDM/config_dmd2_test.py
+  -> selects DMD2
+  -> selects EDM CIFAR-10 teacher checkpoint
+  -> sets training length, batch size, logging, checkpoint interval
+
+train.py + config_dmd2_test.py
+  -> FASTGEN_OUTPUT/fastgen/cifar10/<training_run>/checkpoints/*.pth
+
+scripts/inference/image_model_inference.py + model config + checkpoint
+  -> FASTGEN_OUTPUT/fastgen/cifar10/<inference_run>/samples/
+```
+
+The important pattern is that configs are the dependency contract. Scripts are generic entry points; configs bind a method, network, data source, and artifact path into a concrete experiment.
+
 ## Config Structure
 
 FastGen configs are organized in two main layers:
