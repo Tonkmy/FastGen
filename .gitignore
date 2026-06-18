@@ -182,3 +182,24 @@ wandb/
 
 # vscode
 *.vscode/
+
+# generated experiment artifacts
+/outputs/
+/checkpoints/
+/inference/
+/samples/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.mp4
+*.gif
+*.webm
+*.npy
+*.npz
+*.tar
+*.tar.gz
+*.tgz
+*.bak_*
+=*

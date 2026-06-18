@@ -558,6 +558,7 @@ def main(args, config: BaseConfig):
     save_video_kwargs = {"precision_amp": model.precision_amp_infer, "save_as_gif": args.save_as_gif, "fps": args.fps}
     if args.save_high_quality:
         save_video_kwargs = {
+            "save_as_gif": False,
             "quality": 18,
             "preset": "medium",
             "fps": args.fps,

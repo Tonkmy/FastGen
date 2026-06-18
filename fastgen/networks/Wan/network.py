@@ -595,6 +595,7 @@ class Wan(FastGenNetwork):
         self._use_fsdp_checkpoint = use_fsdp_checkpoint
         self._use_wan_official_sinusoidal = use_wan_official_sinusoidal
 
+        self.model_id_or_local_path = model_id_or_local_path
         model_id, inner_dim = self._initialize_network(model_id_or_local_path, load_pretrained)
         self.model_id = model_id
 
@@ -630,7 +631,11 @@ class Wan(FastGenNetwork):
     def unipc_scheduler(self) -> UniPCMultistepScheduler:
         """Lazily initialize the scheduler."""
         if self._unipc_scheduler is None:
-            self._unipc_scheduler = UniPCMultistepScheduler.from_pretrained(self.model_id, subfolder="scheduler")
+            self._unipc_scheduler = UniPCMultistepScheduler.from_pretrained(
+                self.model_id_or_local_path,
+                subfolder="scheduler",
+                local_files_only=str2bool(os.getenv("LOCAL_FILES_ONLY", "false")),
+            )
         return self._unipc_scheduler
 
     def _initialize_network(self, model_id_or_local_path: str, load_pretrained: bool) -> Tuple[str, int]:
@@ -864,11 +869,11 @@ class Wan(FastGenNetwork):
 
     def init_text_encoder(self):
         """Initialize the text encoder for Wan model."""
-        self.text_encoder = WanTextEncoder(model_id_or_local_path=self.model_id)
+        self.text_encoder = WanTextEncoder(model_id_or_local_path=self.model_id_or_local_path)
 
     def init_vae(self):
         """Initialize the video encoder for Wan model."""
-        self.vae = WanVideoEncoder(model_id_or_local_path=self.model_id)
+        self.vae = WanVideoEncoder(model_id_or_local_path=self.model_id_or_local_path)
 
     def to(self, *args, **kwargs):
         """

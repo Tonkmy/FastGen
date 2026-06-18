@@ -16,6 +16,6 @@ def create_config():
     config.dataloader_train.batch_size = 8
     config.trainer.batch_size_global = 64
     config.log_config.name = "dmd2_test_8gpu"
-    config.log_config.wandb_mode = "disabled"
+    # config.log_config.wandb_mode = "disabled"
 
     return config

@@ -11,10 +11,10 @@ from fastgen.configs.net import Wan_1_3B_Config
 
 def create_config():
     config = config_dmd2_default.create_config()
-    config.model.net_optimizer.lr = 1e-5
-    config.model.discriminator_optimizer.lr = 1e-5
-    config.model.fake_score_optimizer.lr = 1e-5
-
+    config.model.net_optimizer.lr = 1.25e-6
+    config.model.discriminator_optimizer.lr = 1.25e-6
+    config.model.fake_score_optimizer.lr = 1.25e-6
+    # /8
     config.model.precision = "bfloat16"
     # VAE compress ratio: (1+T/4) * H / 8 * W / 8
     config.model.input_shape = [16, 21, 60, 104]
@@ -54,4 +54,8 @@ def create_config():
     config.trainer.batch_size_global = 64
 
     config.log_config.group = "wan_dmd2"
+
+
+
+    # config.model.pretrained_model_path
     return config
